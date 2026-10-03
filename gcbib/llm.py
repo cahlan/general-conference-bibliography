@@ -75,7 +75,8 @@ def refine_low_confidence(con: sqlite3.Connection, talk_ids: list[int], threshol
             cur.execute("INSERT OR REPLACE INTO llm_cache(input_hash, model, output_json, created_at) VALUES (?,?,?,?)",
                         (h, MODEL, json.dumps(data), dt.datetime.now().isoformat(timespec="seconds")))
         if not data["is_citation"]:
-            cur.execute("UPDATE citations SET tier='note', parser='llm', confidence=0.9 WHERE id=?", (cid,))
+            cur.execute("""UPDATE citations SET tier='note', parser='llm', confidence=0.9, person_quoted=NULL, author_name=NULL,
+                           work_title=NULL, work_type=NULL, container_title=NULL, locator=NULL WHERE id=?""", (cid,))
         else:
             cur.execute("""UPDATE citations SET tier='freetext', parser='llm', confidence=0.85,
                            person_quoted=COALESCE(?, person_quoted), author_name=COALESCE(?, author_name),
