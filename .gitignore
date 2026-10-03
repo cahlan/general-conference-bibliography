@@ -1,0 +1,7 @@
+.venv/
+raw/
+__pycache__/
+*.pyc
+data/gcbib.sqlite*
+site/data/
+.pytest_cache/

@@ -1,0 +1,23 @@
+[project]
+name = "gcbib"
+version = "0.1.0"
+description = "A reverse bibliography of LDS general conference talks: who gets quoted, when, and how often."
+requires-python = ">=3.11"
+dependencies = ["beautifulsoup4", "lxml", "pyyaml", "requests"]
+
+[project.optional-dependencies]
+llm = ["anthropic", "pydantic"]
+dev = ["pytest"]
+
+[project.scripts]
+gcbib = "gcbib.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["gcbib*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

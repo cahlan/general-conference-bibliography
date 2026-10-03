@@ -1,0 +1,208 @@
+# Hand-curated entity merges. Automatic normalization runs first; anything listed here wins.
+# authors: canonical name, optional kind (church_leader | external | scripture_figure), aliases as they appear in footnotes.
+# works:   canonical title, optional author (canonical name) and type.
+
+authors:
+  - canonical: C. S. Lewis
+    kind: external
+    aliases: [C.S. Lewis, Clive Staples Lewis, Lewis, C. S. Lewis (author)]
+  - canonical: William Shakespeare
+    kind: external
+    aliases: [Shakespeare, Wm. Shakespeare]
+  - canonical: Mother Teresa
+    kind: external
+    aliases: [Mother Teresa of Calcutta, Teresa of Calcutta, Saint Teresa of Calcutta]
+  - canonical: Saint Augustine
+    kind: external
+    aliases: [Augustine, St. Augustine, Augustine of Hippo, St. Augustine of Hippo]
+  - canonical: Thomas à Kempis
+    kind: external
+    aliases: [Thomas a Kempis, Thomas A Kempis]
+  - canonical: Viktor E. Frankl
+    kind: external
+    aliases: [Viktor Frankl, Victor Frankl, Victor E. Frankl]
+  - canonical: Antoine de Saint-Exupéry
+    kind: external
+    aliases: [Antoine de Saint-Exupery, Saint-Exupéry, Saint-Exupery]
+  - canonical: Mahatma Gandhi
+    kind: external
+    aliases: [Gandhi, Mohandas K. Gandhi, Mohandas Gandhi, M. K. Gandhi]
+  - canonical: Martin Luther King Jr.
+    kind: external
+    aliases: [Martin Luther King, "Martin Luther King, Jr.", Dr. Martin Luther King Jr.]
+  - canonical: Ralph Waldo Emerson
+    kind: external
+    aliases: [Emerson]
+  - canonical: Henry Wadsworth Longfellow
+    kind: external
+    aliases: [Longfellow]
+  - canonical: Alfred, Lord Tennyson
+    kind: external
+    aliases: [Alfred Lord Tennyson, Tennyson, Alfred Tennyson, "Tennyson, Alfred Lord"]
+  - canonical: Victor Hugo
+    kind: external
+    aliases: [Hugo]
+  - canonical: Charles Dickens
+    kind: external
+    aliases: [Dickens]
+  - canonical: Leo Tolstoy
+    kind: external
+    aliases: [Tolstoy, Count Leo Tolstoy, Lev Tolstoy]
+  - canonical: Fyodor Dostoevsky
+    kind: external
+    aliases: [Dostoevsky, Dostoyevsky, Fyodor Dostoyevsky]
+  - canonical: Abraham Lincoln
+    kind: external
+    aliases: [Lincoln]
+  - canonical: Winston Churchill
+    kind: external
+    aliases: [Churchill, Sir Winston Churchill, Winston S. Churchill]
+  - canonical: John Bunyan
+    kind: external
+    aliases: [Bunyan]
+  - canonical: John Milton
+    kind: external
+    aliases: [Milton]
+  - canonical: Dante Alighieri
+    kind: external
+    aliases: [Dante]
+  - canonical: G. K. Chesterton
+    kind: external
+    aliases: [G.K. Chesterton, Chesterton, Gilbert Keith Chesterton]
+  - canonical: George MacDonald
+    kind: external
+    aliases: [MacDonald]
+  - canonical: Joseph Smith
+    kind: church_leader
+    aliases: [The Prophet Joseph Smith, Prophet Joseph Smith, Joseph Smith Jr., "Joseph Smith, Jr.", Joseph Smith Jun., the Prophet Joseph]
+  - canonical: Brigham Young
+    kind: church_leader
+    aliases: [President Brigham Young]
+  - canonical: J. Reuben Clark Jr.
+    kind: church_leader
+    aliases: [J. Reuben Clark, "J. Reuben Clark, Jr."]
+  - canonical: Stephen L Richards
+    kind: church_leader
+    aliases: [Stephen L. Richards]
+
+  - canonical: Thomas Jefferson
+    kind: external
+    aliases: [Jefferson]
+  - canonical: George Washington
+    kind: external
+    aliases: [Washington]
+  - canonical: Benjamin Franklin
+    kind: external
+    aliases: [Franklin]
+  - canonical: Frederic W. Farrar
+    kind: external
+    aliases: [Farrar, F. W. Farrar, Frederick W. Farrar, Frederic Farrar]
+  - canonical: Hugh Nibley
+    kind: external
+    aliases: [Hugh W. Nibley, Nibley]
+  - canonical: Mark Twain
+    kind: external
+    aliases: [Samuel Clemens, Samuel L. Clemens, Twain]
+  - canonical: Robert Frost
+    kind: external
+    aliases: [Frost]
+
+works:
+  - canonical: Mere Christianity
+    author: C. S. Lewis
+    type: book
+    aliases: [Mere Christianity (1952), Mere Christianity (2001)]
+  - canonical: The Screwtape Letters
+    author: C. S. Lewis
+    type: book
+    aliases: [Screwtape Letters]
+  - canonical: The Weight of Glory
+    author: C. S. Lewis
+    type: book
+    aliases: [The Weight of Glory and Other Addresses, Weight of Glory]
+  - canonical: The Great Divorce
+    author: C. S. Lewis
+    type: book
+  - canonical: The Lion, the Witch and the Wardrobe
+    author: C. S. Lewis
+    type: book
+    aliases: ["The Lion, the Witch, and the Wardrobe", Lion the Witch and the Wardrobe]
+  - canonical: Hamlet
+    author: William Shakespeare
+    type: play
+    aliases: [The Tragedy of Hamlet, "Hamlet, Prince of Denmark", "The Tragedy of Hamlet, Prince of Denmark"]
+  - canonical: Macbeth
+    author: William Shakespeare
+    type: play
+    aliases: [The Tragedy of Macbeth]
+  - canonical: King Lear
+    author: William Shakespeare
+    type: play
+    aliases: [The Tragedy of King Lear]
+  - canonical: Henry V
+    author: William Shakespeare
+    type: play
+    aliases: [The Life of King Henry V, King Henry V, The Life of Henry the Fifth, Henry the Fifth, King Henry the Fifth]
+  - canonical: Julius Caesar
+    author: William Shakespeare
+    type: play
+    aliases: [The Tragedy of Julius Caesar]
+  - canonical: The Merchant of Venice
+    author: William Shakespeare
+    type: play
+    aliases: [Merchant of Venice]
+  - canonical: Romeo and Juliet
+    author: William Shakespeare
+    type: play
+    aliases: [The Tragedy of Romeo and Juliet]
+  - canonical: Les Misérables
+    author: Victor Hugo
+    type: book
+    aliases: [Les Miserables, Les Misérables (1862)]
+  - canonical: Man's Search for Meaning
+    author: Viktor E. Frankl
+    type: book
+    aliases: [Man’s Search for Meaning]
+  - canonical: The Little Prince
+    author: Antoine de Saint-Exupéry
+    type: book
+  - canonical: Journal of Discourses
+    type: periodical
+    aliases: [JD, Journal of Discourses (JD)]
+  - canonical: History of the Church
+    type: book
+    aliases: [Documentary History of the Church, DHC, HC, History of The Church of Jesus Christ of Latter-day Saints]
+  - canonical: Teachings of the Prophet Joseph Smith
+    author: Joseph Smith
+    type: book
+    aliases: [Teachings of the Prophet Joseph Smith (1976), TPJS]
+  - canonical: Discourses of Brigham Young
+    author: Brigham Young
+    type: book
+  - canonical: Hymns
+    type: hymnal
+    aliases: [Hymns of The Church of Jesus Christ of Latter-day Saints, "Hymns (1985)", "Hymns, 1985", "Hymns, 1948"]
+
+  - canonical: "Teachings of Presidents of the Church: Joseph Smith"
+    author: Joseph Smith
+    type: manual
+    aliases: ["Teachings: Joseph Smith", "Teachings of Presidents of the Church: Joseph Smith (2007)", "Teachings of Presidents: Joseph Smith"]
+  - canonical: Preach My Gospel
+    type: manual
+    aliases: ["Preach My Gospel: A Guide to Missionary Service", "Preach My Gospel: A Guide to Sharing the Gospel of Jesus Christ", "Preach My Gospel: A Guide to Missionary Service (2004)", "Preach My Gospel: A Guide to Missionary Service (2019)"]
+  - canonical: General Handbook
+    type: manual
+    aliases: ["General Handbook: Serving in The Church of Jesus Christ of Latter-day Saints", "General Handbook: Serving in the Church of Jesus Christ of Latter-day Saints", "Handbook 2: Administering the Church", "Handbook 2", "Handbook 1: Stake Presidents and Bishops", "Church Handbook of Instructions", "General Handbook of Instructions"]
+  - canonical: Jesus the Christ
+    author: James E. Talmage
+    type: book
+    aliases: ["Jesus the Christ (1916)", "Jesus the Christ, 3rd ed."]
+  - canonical: Lectures on Faith
+    type: book
+    aliases: ["Lectures on Faith (1985)"]
+  - canonical: Children’s Songbook
+    type: hymnal
+    aliases: ["Children's Songbook", "Children’s Songbook of The Church of Jesus Christ of Latter-day Saints", "Children’s Songbook (1989)"]
+  - canonical: Joseph Smith Translation
+    type: study_help
+    aliases: [JST, "Joseph Smith Translation of the Bible", "JST, Bible Appendix"]
