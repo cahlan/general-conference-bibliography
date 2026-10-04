@@ -5,3 +5,4 @@ __pycache__/
 data/gcbib.sqlite*
 site/data/
 .pytest_cache/
+site/artifact.html

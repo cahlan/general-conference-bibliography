@@ -32,7 +32,7 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-  header { position: sticky; top: 0; z-index: 10; background: var(--surface); border-bottom: 1px solid var(--border); }
+  header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); border-bottom: 1px solid var(--border); }
   .bar { max-width: 1180px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   .brand { font-weight: 700; font-size: 17px; letter-spacing: -.01em; color: var(--text); }
   .brand small { font-weight: 400; color: var(--text-3); margin-left: 8px; }
@@ -99,11 +99,16 @@ const talkUrl = uri => `https://www.churchofjesuschrist.org/study${uri}?lang=eng
 const confLabel = key => { const [y, m] = key.split("-"); return `${m === "04" ? "Apr" : "Oct"} ${y}`; };
 const DECADES = ["1970s", "1980s", "1990s", "2000s", "2010s", "2020s"];
 const KIND_LABEL = { external: "outside author", church_leader: "Church leader", scripture_figure: "scripture figure" };
-let DATA = null;
-const state = { decades: new Set(), kind: "external", quotedOnly: false };
-const cache = {};
-async function load(path) { if (!cache[path]) cache[path] = fetch(path).then(r => { if (!r.ok) throw new Error(path); return r.json(); }); return cache[path]; }
+let DATA = null, CITS = null, TALK = {}, PERSON = {}, WORK = {};
+const state = { decades: new Set(), kind: "external", quotedOnly: false, workType: "book" };
+async function loadJson(path) { const r = await fetch(path); if (!r.ok) throw new Error(path); return r.json(); }
+async function citations() {
+  if (!CITS) { CITS = await loadJson("data/citations.json"); }
+  return CITS;
+}
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const personName = c => c.p ? (PERSON[c.p]?.name ?? "?") : c.pn;
+const workName = c => c.w ? (WORK[c.w]?.title ?? DATA.containers[c.w] ?? "?") : c.wn;
 
 // ------------------------------------------------------------------ charts
 const charts = [];
@@ -119,9 +124,9 @@ function barChart(canvas, labels, values, opts = {}) {
     options: baseOpts(opts.options || {}) });
   charts.push(c); return c;
 }
-function seriesByConference(byConf, allConfs) {
-  const map = Object.fromEntries(byConf.map(x => [x.conf, x.n]));
-  return { labels: allConfs.map(c => confLabel(c.key)), values: allConfs.map(c => map[c.key] || 0) };
+function confSeries(list) {
+  const ctr = {}; list.forEach(c => { const k = TALK[c.t].conf; ctr[k] = (ctr[k] || 0) + 1; });
+  return { labels: DATA.conferences.map(c => confLabel(c.key)), values: DATA.conferences.map(c => ctr[c.key] || 0) };
 }
 
 // ------------------------------------------------------------------ helpers
@@ -151,29 +156,41 @@ function bindControls(rerender) {
 }
 function rankTable(rows, { nameOf, hrefOf, metaOf, max = 25, label = "citations" }) {
   const top = rows.slice(0, max); const mx = top[0]?.n || 1;
-  return `<table><thead><tr><th style="width:2em">#</th><th>Name</th><th></th><th class="n">${label}</th></tr></thead><tbody>${top.map((r, i) => `<tr><td class="muted">${i + 1}</td><td><a href="${hrefOf(r)}">${esc(nameOf(r))}</a>${metaOf ? `<span class="tag">${esc(metaOf(r))}</span>` : ""}</td><td style="width:30%"><div class="hbar"><div class="track"><div class="fill" style="width:${100 * r.n / mx}%"></div></div></div></td><td class="n">${fmt(r.n)}</td></tr>`).join("")}</tbody></table>`;
+  if (!top.length) return '<p class="muted small">Nothing to show.</p>';
+  return `<div style="overflow-x:auto"><table><thead><tr><th style="width:2em">#</th><th>Name</th><th></th><th class="n">${label}</th></tr></thead><tbody>${top.map((r, i) => `<tr><td class="muted">${i + 1}</td><td><a href="${hrefOf(r)}">${esc(nameOf(r))}</a>${metaOf && metaOf(r) ? `<span class="tag">${esc(metaOf(r))}</span>` : ""}</td><td style="width:30%"><div class="hbar"><div class="track"><div class="fill" style="width:${100 * r.n / mx}%"></div></div></div></td><td class="n">${fmt(r.n)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function countBy(list, keyOf, nameOf, max = 15) {
+  const ctr = new Map();
+  list.forEach(c => { const k = keyOf(c); if (k) ctr.set(k, (ctr.get(k) || 0) + 1); });
+  return [...ctr.entries()].map(([k, n]) => ({ id: k, name: nameOf(k), n })).sort((a, b) => b.n - a.n).slice(0, max);
 }
 function citationHtml(c, { showPerson = true, showWork = true } = {}) {
-  const t = c.talk;
+  const t = TALK[c.t];
   return `<div class="cite">
     <div class="t"><a href="${talkUrl(t.uri)}" target="_blank" rel="noopener">${esc(t.title)}</a> <span class="muted small">— ${esc(t.speaker)}, <a href="#/conference/${t.conf}">${confLabel(t.conf)}</a>${t.session ? `, ${esc(t.session)}` : ""}</span></div>
-    ${c.context ? `<div class="ctx">…${esc(c.context)}</div>` : ""}
-    <div class="raw">${esc(c.raw)}</div>
-    <div class="meta">${c.relation === "see" ? "cited for support" : c.relation === "secondary" ? "quoted via another source" : "quoted"}${showPerson && c.person_id ? ` · <a href="#/person/${c.person_id}">${esc(c.person)}</a>` : ""}${showWork && c.work_id ? ` · <a href="#/work/${c.work_id}">${esc(c.work)}</a>` : ""}${c.work_type ? ` · ${esc(c.work_type)}` : ""}${c.confidence < 0.6 ? ` · <span title="the parser was unsure about this one">low confidence</span>` : ""}</div>
+    ${c.cx ? `<div class="ctx">…${esc(c.cx)}</div>` : ""}
+    <div class="raw">${esc(c.x)}</div>
+    <div class="meta">${c.r === "see" ? "cited for support" : c.r === "secondary" ? "quoted via another source" : "quoted"}${showPerson && c.p ? ` · <a href="#/person/${c.p}">${esc(personName(c))}</a>` : ""}${showWork && c.w ? ` · <a href="#/work/${c.w}">${esc(workName(c))}</a>` : ""}${c.wt ? ` · ${esc(c.wt)}` : ""}${c.cf < 0.6 ? ` · <span title="the parser was unsure about this one">low confidence</span>` : ""}</div>
   </div>`;
+}
+function groupedCitations(list, opts) {
+  const groups = {}; list.forEach(c => (groups[TALK[c.t].conf] ||= []).push(c));
+  const keys = Object.keys(groups).sort().reverse();
+  return keys.map(k => `<details ${keys.length < 6 ? "open" : ""}><summary><b>${confLabel(k)}</b> · ${groups[k].length}</summary>${groups[k].map(c => citationHtml(c, opts)).join("")}</details>`).join("");
 }
 function coverageBanner() {
   const partial = DATA.conferences.filter(c => c.talks_extracted < c.talks);
   if (!partial.length) return "";
   return `<div class="banner">Partial coverage: ${partial.length} conference${partial.length > 1 ? "s" : ""} not fully processed (${partial.slice(0, 6).map(c => confLabel(c.key)).join(", ")}${partial.length > 6 ? "…" : ""}). Counts are lower bounds.</div>`;
 }
+const loading = () => { $("#app").innerHTML = '<div class="loading">Loading citations…</div>'; };
 
 // ------------------------------------------------------------------ views
 function viewHome() {
   const t = DATA.totals;
   const first = DATA.conferences[0], last = DATA.conferences[DATA.conferences.length - 1];
   const persons = filteredPersons();
-  const works = filteredWorks(w => !["talk", "scripture", "periodical", "hymnal", "manual", "study_help", "other", "web"].includes(w.type) && (state.kind === "all" || DATA.persons.find(p => p.id === w.author_id)?.kind === state.kind || (state.kind === "external" && !w.author_id)));
+  const works = filteredWorks(w => !["talk", "scripture", "periodical", "hymnal", "manual", "study_help", "other", "web"].includes(w.type) && (state.kind === "all" || PERSON[w.author_id]?.kind === state.kind || (state.kind === "external" && !w.author_id)));
   const talksCited = filteredWorks(w => w.type === "talk");
   $("#app").innerHTML = `
     <h1>Who gets quoted in general conference</h1>
@@ -209,8 +226,8 @@ function viewPersons() {
 }
 function viewWorks() {
   const types = ["book", "play", "poem", "article", "hymn", "talk", "speech", "manual", "chapter", "periodical", "web", "other"];
-  const sel = state.workType || "book";
-  const works = filteredWorks(w => sel === "all" ? true : sel === "other" ? !types.includes(w.type) : w.type === sel);
+  const sel = state.workType;
+  const works = filteredWorks(w => sel === "all" ? true : sel === "other" ? !types.includes(w.type) || w.type === "other" : w.type === sel);
   $("#app").innerHTML = `<h1>Works cited</h1>${controlsHtml({ kinds: false, quoted: false })}
     <div class="controls"><span class="lbl">Type</span><div class="chip-group" id="types">${["all", ...types].map(t => `<button class="chip ${sel === t ? "on" : ""}" data-t="${t}">${t === "all" ? "Everything" : t}</button>`).join("")}</div></div>
     <div class="card">${rankTable(works, { nameOf: w => w.title, hrefOf: w => `#/work/${w.id}`, metaOf: w => w.author || w.type, max: 300 })}</div>`;
@@ -219,77 +236,90 @@ function viewWorks() {
 }
 
 async function viewPerson(id) {
-  const p = await load(`data/person/${id}.json`);
-  const byConf = seriesByConference(p.by_conference, DATA.conferences);
-  const byDecade = {}; p.citations.forEach(c => { const d = `${Math.floor(c.talk.year / 10) * 10}s`; byDecade[d] = (byDecade[d] || 0) + 1; });
-  const idx = DATA.persons.find(x => x.id === p.id) || {};
-  const groups = {}; p.citations.forEach(c => (groups[c.talk.conf] ||= []).push(c));
+  id = Number(id); const p = PERSON[id];
+  if (!p) { $("#app").innerHTML = '<div class="banner">Unknown person.</div>'; return; }
+  loading(); const all = await citations();
+  const list = all.filter(c => c.p === id);
+  const series = confSeries(list);
+  const byDecade = {}; list.forEach(c => { const d = `${Math.floor(TALK[c.t].year / 10) * 10}s`; byDecade[d] = (byDecade[d] || 0) + 1; });
+  const worksList = countBy(list, c => c.w, k => WORK[k]?.title ?? DATA.containers[k] ?? "?", 40);
+  const speakers = countBy(list, c => TALK[c.t].speaker, k => k, 25);
   $("#app").innerHTML = `
     <p class="small"><a href="#/persons">← People</a></p>
     <h1>${esc(p.name)} <span class="tag">${KIND_LABEL[p.kind] || p.kind}</span></h1>
-    <p class="sub">${fmt(p.total)} citations in ${fmt(idx.talks || 0)} talks${p.aliases.length > 1 ? ` · also written as ${p.aliases.filter(a => a !== p.name).slice(0, 6).map(esc).join(", ")}` : ""}</p>
+    <p class="sub">${fmt(p.total)} citations in ${fmt(p.talks)} talks${p.aliases.length > 1 ? ` · also written as ${p.aliases.filter(a => a !== p.name).slice(0, 6).map(esc).join(", ")}` : ""}</p>
     <div class="tiles">${DECADES.map(d => `<div class="tile"><div class="v">${fmt(byDecade[d] || 0)}</div><div class="l">${d}</div></div>`).join("")}</div>
     <div class="card"><h2>Citations by conference</h2><div class="chart"><canvas id="c1"></canvas></div></div>
     <div class="grid2" style="margin-top:18px">
-      <div class="card"><h2>Works cited</h2>${p.works.length ? rankTable(p.works, { nameOf: w => w.title, hrefOf: w => `#/work/${w.id}`, metaOf: w => w.type, max: 40 }) : '<p class="muted">No specific work recorded.</p>'}</div>
-      <div class="card"><h2>Speakers who cite ${esc(p.name.split(" ").slice(-1)[0])}</h2><table><tbody>${p.speakers.map(([s, n]) => `<tr><td>${esc(s)}</td><td class="n">${n}</td></tr>`).join("")}</tbody></table></div>
+      <div class="card"><h2>Works cited</h2>${worksList.length ? rankTable(worksList, { nameOf: w => w.name, hrefOf: w => `#/work/${w.id}`, metaOf: w => WORK[w.id]?.type, max: 40 }) : '<p class="muted">No specific work recorded.</p>'}</div>
+      <div class="card"><h2>Speakers who cite ${esc(p.name.split(" ").slice(-1)[0])}</h2><table><tbody>${speakers.map(s => `<tr><td>${esc(s.name)}</td><td class="n">${s.n}</td></tr>`).join("")}</tbody></table></div>
     </div>
-    <h2>Every citation</h2>
-    ${Object.keys(groups).sort().reverse().map(k => `<details ${Object.keys(groups).length < 6 ? "open" : ""}><summary><b>${confLabel(k)}</b> · ${groups[k].length}</summary>${groups[k].map(c => citationHtml(c, { showPerson: false })).join("")}</details>`).join("")}`;
+    <h2>Every citation</h2>${groupedCitations(list, { showPerson: false })}`;
   destroyCharts();
-  barChart($("#c1"), byConf.labels, byConf.values);
+  barChart($("#c1"), series.labels, series.values);
 }
 
 async function viewWork(id) {
-  const w = await load(`data/work/${id}.json`);
-  const byConf = seriesByConference(w.by_conference, DATA.conferences);
-  const groups = {}; w.citations.forEach(c => (groups[c.talk.conf] ||= []).push(c));
+  id = Number(id); const w = WORK[id];
+  if (!w) { $("#app").innerHTML = '<div class="banner">Unknown work.</div>'; return; }
+  loading(); const all = await citations();
+  const list = all.filter(c => c.w === id || c.c === id);
+  const series = confSeries(list);
+  const persons = countBy(list, c => c.p, k => PERSON[k]?.name ?? "?", 20);
   $("#app").innerHTML = `
     <p class="small"><a href="#/works">← Works</a></p>
     <h1>${esc(w.title)} <span class="tag">${esc(w.type)}</span></h1>
-    <p class="sub">${w.author ? `by <a href="#/person/${w.author_id}">${esc(w.author)}</a> · ` : ""}${fmt(w.total)} citations${w.cited_talk_uri ? ` · <a href="${talkUrl(w.cited_talk_uri)}" target="_blank" rel="noopener">read the talk ↗</a>` : ""}${w.aliases.length > 1 ? ` · also cited as ${w.aliases.filter(a => a !== w.title).slice(0, 5).map(esc).join("; ")}` : ""}</p>
+    <p class="sub">${w.author ? `by <a href="#/person/${w.author_id}">${esc(w.author)}</a> · ` : ""}${fmt(list.length)} citations${w.cited_talk_uri ? ` · <a href="${talkUrl(w.cited_talk_uri)}" target="_blank" rel="noopener">read the talk ↗</a>` : ""}${w.aliases.length > 1 ? ` · also cited as ${w.aliases.filter(a => a !== w.title).slice(0, 5).map(esc).join("; ")}` : ""}</p>
     <div class="card"><h2>Citations by conference</h2><div class="chart"><canvas id="c1"></canvas></div></div>
-    ${w.persons.length > 1 ? `<div class="card" style="margin-top:18px"><h2>Whose words</h2>${rankTable(w.persons, { nameOf: p => p.name, hrefOf: p => `#/person/${p.id}`, max: 20 })}</div>` : ""}
-    <h2>Every citation</h2>
-    ${Object.keys(groups).sort().reverse().map(k => `<details ${Object.keys(groups).length < 6 ? "open" : ""}><summary><b>${confLabel(k)}</b> · ${groups[k].length}</summary>${groups[k].map(c => citationHtml(c, { showWork: false })).join("")}</details>`).join("")}`;
+    ${persons.length > 1 ? `<div class="card" style="margin-top:18px"><h2>Whose words</h2>${rankTable(persons, { nameOf: p => p.name, hrefOf: p => `#/person/${p.id}`, max: 20 })}</div>` : ""}
+    <h2>Every citation</h2>${groupedCitations(list, { showWork: false })}`;
   destroyCharts();
-  barChart($("#c1"), byConf.labels, byConf.values);
+  barChart($("#c1"), series.labels, series.values);
 }
 
 function viewConferences() {
   const rows = [...DATA.conferences].reverse();
   $("#app").innerHTML = `<h1>Conferences</h1><p class="sub">Pick a conference to see its sessions, talks, and who was quoted.</p>
-    <div class="card"><table><thead><tr><th>Conference</th><th class="n">Talks</th><th class="n">Citations</th><th class="n">Scripture</th><th class="n">Outside authors</th><th>Most quoted</th></tr></thead><tbody>
-    ${rows.map(c => `<tr><td><a href="#/conference/${c.key}">${confLabel(c.key)}</a>${c.talks_extracted < c.talks ? '<span class="tag">partial</span>' : ""}</td><td class="n">${c.talks}</td><td class="n">${fmt(c.citations)}</td><td class="n">${fmt(c.scripture)}</td><td class="n">${fmt(c.external)}</td><td class="small">${c.top_persons.slice(0, 4).map(p => `<a href="#/person/${p.id}">${esc(p.name)}</a> (${p.n})`).join(", ")}</td></tr>`).join("")}
+    <div class="card" style="overflow-x:auto"><table><thead><tr><th>Conference</th><th class="n">Talks</th><th class="n">Citations</th><th class="n">Scripture</th><th class="n">Outside</th><th>Most quoted</th></tr></thead><tbody>
+    ${rows.map(c => `<tr><td class="nowrap"><a href="#/conference/${c.key}">${confLabel(c.key)}</a>${c.talks_extracted < c.talks ? '<span class="tag">partial</span>' : ""}</td><td class="n">${c.talks}</td><td class="n">${fmt(c.citations)}</td><td class="n">${fmt(c.scripture)}</td><td class="n">${fmt(c.external)}</td><td class="small">${c.top_persons.slice(0, 4).map(p => `<a href="#/person/${p.id}">${esc(p.name)}</a> (${p.n})`).join(", ")}</td></tr>`).join("")}
     </tbody></table></div>`;
 }
 
 async function viewConference(key) {
-  const c = await load(`data/conference/${key}.json`);
-  const idx = DATA.conferences.findIndex(x => x.key === key);
+  const conf = DATA.conferences.find(x => x.key === key);
+  if (!conf) { $("#app").innerHTML = '<div class="banner">Unknown conference.</div>'; return; }
+  loading(); const all = await citations();
+  const talks = DATA.talks.filter(t => t.conf === key);
+  const tids = new Set(talks.map(t => t.id));
+  const list = all.filter(c => tids.has(c.t));
+  const idx = DATA.conferences.indexOf(conf);
   const prev = DATA.conferences[idx - 1], next = DATA.conferences[idx + 1];
-  const externalTop = (list) => list.filter(p => (DATA.persons.find(x => x.id === p.id) || {}).kind === "external");
+  const sessions = []; talks.forEach(t => { let s = sessions.find(x => x.title === t.session); if (!s) sessions.push(s = { title: t.session, talks: [] }); s.talks.push(t); });
+  const pname = k => PERSON[k]?.name ?? "?", wname = k => WORK[k]?.title ?? DATA.containers[k] ?? "?";
+  const external = list.filter(c => PERSON[c.p]?.kind === "external");
   $("#app").innerHTML = `
     <p class="small"><a href="#/conferences">← Conferences</a> ${prev ? `· <a href="#/conference/${prev.key}">‹ ${confLabel(prev.key)}</a>` : ""} ${next ? `· <a href="#/conference/${next.key}">${confLabel(next.key)} ›</a>` : ""}</p>
-    <h1>${esc(c.title)}</h1>
+    <h1>${esc(conf.title)}</h1>
     <div class="tiles">
-      <div class="tile"><div class="v">${c.talks}</div><div class="l">talks</div></div>
-      <div class="tile"><div class="v">${fmt(c.citations)}</div><div class="l">non-scripture citations</div></div>
-      <div class="tile"><div class="v">${fmt(c.scripture)}</div><div class="l">scripture references</div></div>
-      <div class="tile"><div class="v">${fmt(c.external)}</div><div class="l">quotes from outside authors</div></div>
+      <div class="tile"><div class="v">${conf.talks}</div><div class="l">talks</div></div>
+      <div class="tile"><div class="v">${fmt(conf.citations)}</div><div class="l">non-scripture citations</div></div>
+      <div class="tile"><div class="v">${fmt(conf.scripture)}</div><div class="l">scripture references</div></div>
+      <div class="tile"><div class="v">${fmt(conf.external)}</div><div class="l">quotes from outside authors</div></div>
     </div>
     <div class="grid2">
-      <div class="card"><h2>Most quoted this conference</h2>${rankTable(c.top_persons, { nameOf: p => p.name, hrefOf: p => `#/person/${p.id}`, max: 10 })}
-        ${externalTop(c.top_persons).length ? "" : `<p class="small muted">Outside authors this conference: ${(c.sessions.flatMap(s => s.top_persons)).filter(p => (DATA.persons.find(x => x.id === p.id) || {}).kind === "external").slice(0, 8).map(p => `<a href="#/person/${p.id}">${esc(p.name)}</a>`).join(", ") || "none found"}</p>`}</div>
-      <div class="card"><h2>Most-cited works</h2>${rankTable(c.top_works, { nameOf: w => w.name, hrefOf: w => `#/work/${w.id}`, max: 10 })}</div>
+      <div class="card"><h2>Most quoted this conference</h2>${rankTable(countBy(list, c => c.p, pname, 10), { nameOf: p => p.name, hrefOf: p => `#/person/${p.id}`, metaOf: p => PERSON[p.id]?.kind === "external" ? "outside" : "", max: 10 })}
+        ${external.length ? `<p class="small muted">Outside authors: ${countBy(external, c => c.p, pname, 10).map(p => `<a href="#/person/${p.id}">${esc(p.name)}</a> (${p.n})`).join(", ")}</p>` : ""}</div>
+      <div class="card"><h2>Most-cited works</h2>${rankTable(countBy(list, c => c.w, wname, 10), { nameOf: w => w.name, hrefOf: w => `#/work/${w.id}`, metaOf: w => WORK[w.id]?.type, max: 10 })}</div>
     </div>
-    ${c.sessions.map(s => `
-      <h2>${esc(s.title)} <span class="muted small">· ${fmt(s.citations)} citations, ${fmt(s.scripture)} scripture</span></h2>
-      ${s.top_persons.length ? `<p class="small muted">Most quoted in this session: ${s.top_persons.slice(0, 6).map(p => `<a href="#/person/${p.id}">${esc(p.name)}</a> (${p.n})`).join(", ")}</p>` : ""}
-      ${s.talks.map(t => `<details><summary><b>${esc(t.title)}</b> — ${esc(t.speaker)} <span class="muted">· ${t.citations} citations, ${t.scripture} scripture · <a href="${talkUrl(t.uri)}" target="_blank" rel="noopener">read ↗</a></span></summary>
-        ${t.items.map(i => citationHtml(i)).join("") || '<p class="muted small">No non-scripture citations.</p>'}
-        ${t.scripture_items.length ? `<p class="small muted">Scripture: ${t.scripture_items.map(esc).join("; ")}</p>` : ""}
-      </details>`).join("")}`).join("")}`;
+    ${sessions.map(s => {
+      const sids = new Set(s.talks.map(t => t.id)); const sl = list.filter(c => sids.has(c.t));
+      const top = countBy(sl, c => c.p, pname, 6);
+      return `<h2>${esc(s.title)} <span class="muted small">· ${fmt(sl.length)} citations, ${fmt(s.talks.reduce((a, t) => a + t.s.length, 0))} scripture</span></h2>
+      ${top.length ? `<p class="small muted">Most quoted in this session: ${top.map(p => `<a href="#/person/${p.id}">${esc(p.name)}</a> (${p.n})`).join(", ")}</p>` : ""}
+      ${s.talks.map(t => { const items = sl.filter(c => c.t === t.id); return `<details><summary><b>${esc(t.title)}</b> — ${esc(t.speaker)} <span class="muted">· ${items.length} citations, ${t.s.length} scripture · <a href="${talkUrl(t.uri)}" target="_blank" rel="noopener">read ↗</a></span></summary>
+        ${items.map(i => citationHtml(i)).join("") || '<p class="muted small">No non-scripture citations.</p>'}
+        ${t.s.length ? `<p class="small muted">Scripture: ${t.s.map(esc).join("; ")}</p>` : ""}
+      </details>`; }).join("")}`; }).join("")}`;
 }
 
 function viewScripture() {
@@ -302,7 +332,7 @@ function viewScripture() {
     <div class="tiles">${vols.map(v => `<div class="tile"><div class="v">${fmt(byVol[v] || 0)}</div><div class="l">${v}</div></div>`).join("")}</div>
     <div class="card"><h2>Books</h2><div class="chart tall"><canvas id="c1"></canvas></div></div>
     <div class="grid2" style="margin-top:18px">
-      <div class="card"><h2>Most-cited chapters</h2><table><tbody>${books.flatMap(b => b.top_chapters.map(([k, n]) => [k, n])).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, n]) => `<tr><td>${esc(k)}</td><td class="n">${n}</td></tr>`).join("")}</tbody></table></div>
+      <div class="card"><h2>Most-cited chapters</h2><table><tbody>${books.flatMap(b => b.top_chapters).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, n]) => `<tr><td>${esc(k)}</td><td class="n">${n}</td></tr>`).join("")}</tbody></table></div>
       <div class="card"><h2>Most-cited passages</h2><table><tbody>${books.flatMap(b => b.top_passages).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, n]) => `<tr><td>${esc(k)}</td><td class="n">${n}</td></tr>`).join("")}</tbody></table></div>
     </div>`;
   bindControls(viewScripture);
@@ -317,12 +347,12 @@ function viewAbout() {
   <div class="card" style="max-width:820px">
   <p>This is a <b>reverse bibliography</b> of general conference of The Church of Jesus Christ of Latter-day Saints. A normal bibliography lists what one talk cites. This flips it: for every author and work, it lists every talk that cited it, from April 1971 (the earliest conference published online) to the present.</p>
   <h3>How it is built</h3>
-  <p>Each talk is fetched from the Gospel Library's public JSON, which already marks scripture links, cross-references to other talks and manuals, and the footnotes. Scripture and cross-reference links are read directly from the hyperlinks. Everything else (books, plays, poems, articles) is parsed from the footnote text by a rule-based parser written for the Church magazines' Chicago-style citations. Talks before 1996 have no footnotes; their citations sit inline in parentheses and are parsed the same way.</p>
+  <p>Each talk is fetched from the Gospel Library's public JSON, which already marks scripture links, cross-references to other talks and manuals, and the footnotes. Scripture and cross-reference links are read directly from the hyperlinks. Everything else (books, plays, poems, articles) is parsed from the footnote text by a rule-based parser written for the Church magazines' Chicago-style citations, with Claude re-reading the notes the rules were unsure about. Talks before 1996 have no footnotes; their citations sit inline in parentheses and are parsed the same way.</p>
   <p>Spelling variants of a name or title are merged automatically and with a hand-curated alias list. A citation that begins with “See” is counted as <i>cited for support</i>; one introduced by “in” or “quoted in” records both the person quoted and the source the quote came through.</p>
   <h3>How to read the numbers</h3>
   <p>A count is the number of footnotes or inline citations, not the number of distinct quotations: a talk that quotes C. S. Lewis three times with three footnotes counts three. “Quoted only” excludes “see also” references. Scripture is shown on its own page because it accounts for ${Math.round(100 * t.scripture / t.citations)}% of all references. Low-confidence parses are marked in the citation lists; expect some noise in the long tail.</p>
   <h3>Totals</h3>
-  <p>${fmt(t.talks)} talks · ${fmt(t.citations)} citation records · ${fmt(t.counted)} non-scripture · ${fmt(t.scripture)} scripture · ${fmt(t.persons)} people · ${fmt(t.works)} works. Generated ${esc(DATA.generated_at)}.</p>
+  <p>${fmt(t.talks)} talks · ${fmt(t.citations)} citation records · ${fmt(t.counted)} non-scripture · ${fmt(t.scripture)} scripture · ${fmt(t.persons)} people · ${fmt(t.works)} works. Generated ${esc(DATA.generated_at)}. Source code: <a href="https://github.com/cahlan/general-conference-bibliography" target="_blank" rel="noopener">github.com/cahlan/general-conference-bibliography</a>.</p>
   </div>`;
 }
 
@@ -363,12 +393,14 @@ async function route() {
   } catch (e) { $("#app").innerHTML = `<div class="banner">Could not load this page (${esc(e.message)}).</div>`; }
 }
 (async function init() {
-  try { DATA = await load("data/index.json"); }
+  try { DATA = await loadJson("data/index.json"); }
   catch (e) { $("#app").innerHTML = `<div class="banner">No data yet. Run <code>python -m gcbib run all</code> then <code>python -m gcbib serve</code>.</div>`; return; }
+  DATA.talks.forEach(t => TALK[t.id] = t); DATA.persons.forEach(p => PERSON[p.id] = p); DATA.works.forEach(w => WORK[w.id] = w);
   $("#foot").textContent = `Data from churchofjesuschrist.org · generated ${DATA.generated_at}`;
   bindSearch();
   window.addEventListener("hashchange", route);
   route();
+  citations().catch(() => {});   // warm the detail data in the background
 })();
 </script>
 </body>
