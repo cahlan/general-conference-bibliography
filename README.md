@@ -95,6 +95,13 @@ JOIN talks t ON t.id = ci.talk_id JOIN conferences c ON c.id = t.conference_id
 WHERE a.canonical_name = 'C. S. Lewis' AND ci.tier != 'note' GROUP BY decade;
 ```
 
+## Publishing the dashboard
+
+`aggregate` also writes `site/artifact.html`, the same page without the document wrapper. To publish or
+refresh the shared copy on claude.ai, ask Claude to publish `site/artifact.html` with `site/data/index.json`
+and `site/data/citations.json` as its files (the existing artifact URL keeps the same link). The page and
+both data files total about 10 MB, well under the artifact limits.
+
 ## Keeping it current
 
 After each conference:

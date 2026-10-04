@@ -160,5 +160,20 @@ def build_site_data(con: sqlite3.Connection, out: Path, log=print) -> None:
              "conferences": conf_index, "talks": talks_index, "persons": persons_index, "works": works_index,
              "containers": container_names, "speakers": speakers_index, "scripture": scripture_index}
     (out / "index.json").write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")))
+    write_artifact_page(out.parent)
     sizes = {p.name: round(p.stat().st_size / 1e6, 2) for p in out.iterdir()}
     log(f"aggregate: wrote {out} {sizes} MB ({len(persons_index)} persons, {len(works_index)} works, {len(conf_index)} conferences)")
+
+
+def write_artifact_page(site_dir: Path) -> None:
+    """site/artifact.html: the dashboard without the document wrapper, for publishing as a claude.ai Artifact
+    (the Artifact host supplies its own doctype, head, and body)."""
+    import re
+    src = site_dir / "index.html"
+    if not src.exists():
+        return
+    s = src.read_text()
+    s = re.sub(r"^<!doctype html>\s*<html[^>]*>\s*<head>\s*", "", s, flags=re.I)
+    s = re.sub(r'<meta charset="utf-8">\s*<meta name="viewport"[^>]*>\s*', "", s)
+    s = s.replace("</head>\n<body>\n", "").replace("</body>\n</html>\n", "")
+    (site_dir / "artifact.html").write_text(s)
