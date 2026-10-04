@@ -46,6 +46,11 @@ HISTORIC_LEADERS = {
     "Susa Young Gates", "Karl G. Maeser", "Jesse Knight", "Truman O. Angell", "Jacob Hamblin", "Porter Rockwell",
     "Edward Partridge", "Newel K. Whitney", "Sidney Rigdon", "Martin Harris", "David Whitmer", "Thomas B. Marsh",
     "Lyman Wight", "William W. Phelps", "W. W. Phelps", "John Whitmer", "Frederick G. Williams", "Oliver Granger",
+    "First Presidency", "The First Presidency", "Quorum of the Twelve Apostles", "The Quorum of the Twelve Apostles",
+    "Council of the Twelve", "First Presidency and Quorum of the Twelve Apostles", "The First Presidency and Quorum of the Twelve Apostles",
+    "Marjorie Pay Hinckley", "Wendy W. Nelson", "Frances J. Monson", "Kristen M. Oaks", "Kathleen J. Eyring", "Harriet R. Uchtdorf",
+    "Donna S. Packer", "Flora A. Benson", "Ruth W. Faust", "Inis S. Hunter", "Colleen H. Maxwell", "Susan K. Bednar",
+    "Barbara B. Ballard", "Kathy J. Christofferson",
 }
 SCRIPTURE_FIGURES = {
     "Nephi", "Lehi", "Jacob", "Enos", "Mosiah", "Benjamin", "King Benjamin", "Abinadi", "Alma", "Amulek", "Ammon",
@@ -58,11 +63,43 @@ SCRIPTURE_FIGURES = {
     "Martha", "Mary Magdalene", "Lazarus", "Nicodemus", "Zacchaeus", "Pilate", "Herod", "The Lord", "Lord",
     "Heavenly Father", "God", "The Apostle Paul", "Apostle Paul", "The Prophet Nephi", "The Psalmist", "Psalmist",
 }
+# "President Nelson", "Elder Holland", "Kimball" -> the leader almost always meant. Surnames shared by several
+# prominent leaders (Smith, Young, Richards, Pratt, Lee, Taylor, Snow, Grant, Clark, Brown…) are deliberately absent.
+SURNAME_TO_LEADER = {
+    "nelson": "Russell M. Nelson", "hinckley": "Gordon B. Hinckley", "kimball": "Spencer W. Kimball", "monson": "Thomas S. Monson",
+    "benson": "Ezra Taft Benson", "hunter": "Howard W. Hunter", "mckay": "David O. McKay", "woodruff": "Wilford Woodruff",
+    "oaks": "Dallin H. Oaks", "eyring": "Henry B. Eyring", "uchtdorf": "Dieter F. Uchtdorf", "faust": "James E. Faust",
+    "packer": "Boyd K. Packer", "tanner": "N. Eldon Tanner", "romney": "Marion G. Romney", "ballard": "M. Russell Ballard",
+    "holland": "Jeffrey R. Holland", "christofferson": "D. Todd Christofferson", "bednar": "David A. Bednar", "andersen": "Neil L. Andersen",
+    "rasband": "Ronald A. Rasband", "stevenson": "Gary E. Stevenson", "renlund": "Dale G. Renlund", "gong": "Gerrit W. Gong",
+    "soares": "Ulisses Soares", "kearon": "Patrick Kearon", "maxwell": "Neal A. Maxwell", "mcconkie": "Bruce R. McConkie",
+    "scott": "Richard G. Scott", "hales": "Robert D. Hales", "wirthlin": "Joseph B. Wirthlin", "perry": "L. Tom Perry",
+    "haight": "David B. Haight", "ashton": "Marvin J. Ashton", "petersen": "Mark E. Petersen", "talmage": "James E. Talmage",
+    "widtsoe": "John A. Widtsoe", "hyde": "Orson Hyde", "whitney": "Orson F. Whitney", "penrose": "Charles W. Penrose",
+    "lund": "Anthon H. Lund", "ivins": "Anthony W. Ivins", "callis": "Charles A. Callis", "bowen": "Albert E. Bowen",
+    "moyle": "Henry D. Moyle", "evans": "Richard L. Evans", "stapley": "Delbert L. Stapley", "sill": "Sterling W. Sill",
+    "hanks": "Marion D. Hanks", "featherstone": "Vaughn J. Featherstone", "kapp": "Ardeth G. Kapp", "dew": "Sheri L. Dew",
+    "beck": "Julie B. Beck", "okazaki": "Chieko N. Okazaki", "cowley": "Matthias F. Cowley", "merrill": "Joseph F. Merrill",
+    "ballif": "Ariel S. Ballif", "cook": "Quentin L. Cook", "causse": "Gérald Caussé", "caussé": "Gérald Caussé",
+    "wickman": "Lance B. Wickman", "clayton": "L. Whitney Clayton", "hallstrom": "Donald L. Hallstrom", "zwick": "W. Craig Zwick",
+}
+# "Sister Hinckley" is Marjorie, not Gordon.
+SISTER_TO_NAME = {
+    "hinckley": "Marjorie Pay Hinckley", "nelson": "Wendy W. Nelson", "monson": "Frances J. Monson", "kimball": "Camilla E. Kimball",
+    "oaks": "Kristen M. Oaks", "eyring": "Kathleen J. Eyring", "holland": "Patricia T. Holland", "uchtdorf": "Harriet R. Uchtdorf",
+    "packer": "Donna S. Packer", "benson": "Flora A. Benson", "faust": "Ruth W. Faust", "hunter": "Inis S. Hunter",
+    "maxwell": "Colleen H. Maxwell", "bednar": "Susan K. Bednar", "ballard": "Barbara B. Ballard", "christofferson": "Kathy J. Christofferson",
+}
+TITLE_PREFIX = re.compile(r"^(president|elder|sister|brother|bishop)\s+", re.I)
+
 AMBIGUOUS_FIRST_LAST = {("joseph", "smith"), ("john", "smith"), ("john", "taylor"), ("george", "smith"),
                         ("hyrum", "smith"), ("william", "smith"), ("samuel", "smith"), ("don", "smith")}
 
 
 def name_key(name: str) -> str:
+    m = re.match(r"^(?:Sister|Sis\.)\s+([A-Z][\w’'-]+)\.?$", name.strip())
+    if m:
+        return "sister " + m.group(1).lower()
     n = clean_name(name) or name
     n = n.lower()
     n = re.sub(r"[.,’'\"()\[\]]", "", n)
@@ -118,7 +155,7 @@ def resolve_all(con: sqlite3.Connection, log=print) -> None:
         if (first, last) in AMBIGUOUS_FIRST_LAST or len(keys) < 2:
             continue
         shorts = [k for k in keys if len(k.split()) == 2]
-        fulls = [k for k in keys if len(k.split()) > 2]
+        fulls = [k for k in keys if len(k.split()) > 2 and all(t not in {"the", "of", "and", "de", "von", "van", "la", "le"} for t in k.split()[1:-1])]
         if len(fulls) == 1 and shorts:
             for s in shorts:
                 merge_into[s] = fulls[0]
@@ -133,6 +170,15 @@ def resolve_all(con: sqlite3.Connection, log=print) -> None:
         kind_override[name_key(canon)] = a.get("kind")
         for al in [canon] + list(a.get("aliases", [])):
             alias_to_canonical[name_key(al)] = canon
+    for key, ctr in list(groups.items()):
+        if key in alias_to_canonical:
+            continue
+        if key.startswith("sister ") and key[7:] in SISTER_TO_NAME:
+            alias_to_canonical[key] = SISTER_TO_NAME[key[7:]]
+        elif len(key.split()) == 1 and key in SURNAME_TO_LEADER:
+            titled = any(TITLE_PREFIX.match(raw) for raw in ctr)
+            if titled or key not in {"cook", "scott", "evans", "beck", "dew", "hyde", "sill", "hanks", "perry", "lund", "bowen", "moyle", "clayton"}:
+                alias_to_canonical[key] = SURNAME_TO_LEADER[key]
     merged: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
     canonical_name: dict[str, str] = {}
     for key, ctr in groups.items():

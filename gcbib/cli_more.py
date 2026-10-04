@@ -40,6 +40,8 @@ def register(sub, add_scope, scope):
         if getattr(args, "llm", False):
             from .llm import refine_low_confidence
             refine_low_confidence(con, ids)
+        print("note: the dashboard reads site/data; run `gcbib resolve && gcbib aggregate` (or use `gcbib run`) to refresh it,"
+              " then reload the page", file=sys.stderr)
 
     def cmd_resolve(args):
         from .resolve import resolve_all

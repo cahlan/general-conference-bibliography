@@ -107,6 +107,16 @@ authors:
     kind: external
     aliases: [Frost]
 
+  - canonical: First Presidency
+    kind: church_leader
+    aliases: [The First Presidency, First Presidency of The Church of Jesus Christ of Latter-day Saints, First Presidency of the Church]
+  - canonical: Quorum of the Twelve Apostles
+    kind: church_leader
+    aliases: [The Quorum of the Twelve Apostles, Council of the Twelve, The Council of the Twelve, Quorum of the Twelve, The Twelve]
+  - canonical: Jesus Christ
+    kind: scripture_figure
+    aliases: [Jesus, Christ, The Savior, Savior, the Savior, The Lord Jesus Christ, Lord Jesus Christ, Jesus of Nazareth]
+
 works:
   - canonical: Mere Christianity
     author: C. S. Lewis
